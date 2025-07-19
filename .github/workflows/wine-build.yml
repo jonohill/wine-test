@@ -79,7 +79,7 @@ jobs:
         ../configure \
           --build=aarch64-apple-darwin \
           --host=aarch64-apple-darwin \
-          --enable-archs=arm64 \
+          --enable-archs=aarch64 \
           --enable-win64 \
           --disable-tests \
           --disable-winebth-sys \
