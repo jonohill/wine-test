@@ -66,6 +66,13 @@ jobs:
         cd wine-source
         echo "Wine version: $(git describe --tags)"
         
+    - name: Apply ARM64 preloader patch
+      run: |
+        cd wine-source
+        # Copy our ARM64-enabled preloader
+        cp ../preloader_mac.c loader/preloader_mac.c
+        echo "Applied ARM64 preloader patch"
+        
     - name: Configure Wine for ARM64
       run: |
         cd wine-source
