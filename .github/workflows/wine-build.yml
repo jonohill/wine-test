@@ -38,6 +38,10 @@ jobs:
         echo "Installing build dependencies..."
         brew install --formula bison mingw-w64 pkgconfig
         
+        # Install LLVM for additional cross-compilation support
+        echo "Installing LLVM..."
+        brew install --formula llvm
+        
         # Install runtime dependencies  
         echo "Installing runtime dependencies..."
         brew install --formula freetype gnutls molten-vk sdl2
@@ -47,6 +51,9 @@ jobs:
         
         # Add bison to PATH (Homebrew doesn't do this automatically)
         echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
+        
+        # Add LLVM to PATH
+        echo "$(brew --prefix llvm)/bin" >> $GITHUB_PATH
         
     - name: Install XQuartz (optional X11 support)
       run: |
@@ -75,11 +82,12 @@ jobs:
         export LDFLAGS="-arch arm64 -Wl,-rpath,/opt/X11/lib -Wl,-rpath,$(brew --prefix)/lib"
         export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/share/pkgconfig"
         
-        # Configure Wine for ARM64
+        # Configure Wine for ARM64 - focus on x86/x64 Windows app support first
+        # Skip ARM64 PE for now since cross-compiler support is limited
         ../configure \
           --build=aarch64-apple-darwin \
           --host=aarch64-apple-darwin \
-          --enable-archs=aarch64 \
+          --enable-archs=x86_64 \
           --enable-win64 \
           --disable-tests \
           --disable-winebth-sys \
