@@ -44,7 +44,7 @@ jobs:
         
         # Install runtime dependencies  
         echo "Installing runtime dependencies..."
-        brew install --formula freetype gnutls molten-vk sdl2
+        brew install --formula freetype gnutls sdl2
         
         # Install additional dependencies that might be needed
         brew install --formula gettext libpng jpeg-turbo
@@ -120,7 +120,7 @@ jobs:
           --with-unwind \
           --without-usb \
           --without-v4l2 \
-          --with-vulkan \
+          --without-vulkan \
           --without-wayland \
           --with-x
           
