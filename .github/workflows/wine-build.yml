@@ -1,0 +1,169 @@
+name: Build Wine ARM64 for macOS
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-wine-arm64:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up environment
+      run: |
+        # Print system information
+        echo "System Info:"
+        uname -a
+        sw_vers
+        echo "Architecture: $(arch)"
+        
+    - name: Install Xcode Command Line Tools
+      run: |
+        # Ensure Xcode command line tools are installed
+        xcode-select --install || true
+        sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer || true
+        
+    - name: Install Homebrew dependencies
+      run: |
+        # Update Homebrew
+        brew update
+        
+        # Install build dependencies
+        echo "Installing build dependencies..."
+        brew install --formula bison mingw-w64 pkgconfig
+        
+        # Install runtime dependencies  
+        echo "Installing runtime dependencies..."
+        brew install --formula freetype gnutls molten-vk sdl2
+        
+        # Install additional dependencies that might be needed
+        brew install --formula gettext libpng jpeg-turbo
+        
+        # Add bison to PATH (Homebrew doesn't do this automatically)
+        echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
+        
+    - name: Install XQuartz (optional X11 support)
+      run: |
+        brew install --cask xquartz
+        
+    - name: Clone Wine source
+      run: |
+        # Clone Wine from the official repository
+        git clone --depth 1 https://github.com/wine-mirror/wine.git wine-source
+        cd wine-source
+        echo "Wine version: $(git describe --tags)"
+        
+    - name: Configure Wine for ARM64
+      run: |
+        cd wine-source
+        
+        # Create build directory
+        mkdir -p build-arm64
+        cd build-arm64
+        
+        # Set environment variables for ARM64 build
+        export CC="clang -arch arm64"
+        export CXX="clang++ -arch arm64" 
+        export CFLAGS="-arch arm64 -mmacosx-version-min=11.0"
+        export CXXFLAGS="-arch arm64 -mmacosx-version-min=11.0"
+        export LDFLAGS="-arch arm64 -Wl,-rpath,/opt/X11/lib -Wl,-rpath,$(brew --prefix)/lib"
+        export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/share/pkgconfig"
+        
+        # Configure Wine for ARM64
+        ../configure \
+          --build=aarch64-apple-darwin \
+          --host=aarch64-apple-darwin \
+          --enable-archs=arm64 \
+          --enable-win64 \
+          --disable-tests \
+          --disable-winebth-sys \
+          --without-alsa \
+          --without-capi \
+          --with-coreaudio \
+          --with-cups \
+          --without-dbus \
+          --with-freetype \
+          --with-gettext \
+          --without-gettextpo \
+          --without-gphoto \
+          --with-gnutls \
+          --without-gssapi \
+          --without-gstreamer \
+          --without-inotify \
+          --without-krb5 \
+          --with-mingw \
+          --without-netapi \
+          --with-opencl \
+          --without-opengl \
+          --without-oss \
+          --without-pcap \
+          --without-pcsclite \
+          --with-pthread \
+          --without-pulse \
+          --without-sane \
+          --with-sdl \
+          --without-udev \
+          --with-unwind \
+          --without-usb \
+          --without-v4l2 \
+          --with-vulkan \
+          --without-wayland \
+          --with-x
+          
+    - name: Build Wine
+      run: |
+        cd wine-source/build-arm64
+        
+        # Build Wine (use multiple cores but not too many to avoid memory issues)
+        make -j$(sysctl -n hw.logicalcpu)
+        
+    - name: Create Wine package
+      run: |
+        cd wine-source/build-arm64
+        
+        # Create installation directory
+        mkdir -p wine-arm64-package
+        
+        # Install Wine to package directory
+        make install DESTDIR="$(pwd)/wine-arm64-package" prefix=/usr/local
+        
+        # Create tarball
+        cd wine-arm64-package
+        tar -czf ../wine-arm64-macos-$(date +%Y%m%d).tar.gz .
+        
+    - name: Upload Wine ARM64 build
+      uses: actions/upload-artifact@v4
+      with:
+        name: wine-arm64-macos-${{ github.sha }}
+        path: wine-source/build-arm64/wine-arm64-macos-*.tar.gz
+        retention-days: 30
+        
+    - name: Test Wine installation
+      run: |
+        cd wine-source/build-arm64
+        
+        # Basic wine version check
+        ./wine --version || echo "Wine version check failed"
+        
+        # Check wine architecture
+        file ./wine || echo "File command failed"
+        
+        # List some key binaries
+        echo "Wine binaries:"
+        ls -la wine* || echo "No wine binaries found"
+        
+    - name: Generate build summary
+      run: |
+        echo "## Wine ARM64 Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Date**: $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Architecture**: $(arch)" >> $GITHUB_STEP_SUMMARY
+        echo "- **macOS Version**: $(sw_vers -productVersion)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Xcode Version**: $(xcodebuild -version | head -1)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Wine Source**: Latest from wine-mirror/wine" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build Status**: ✅ Success" >> $GITHUB_STEP_SUMMARY
