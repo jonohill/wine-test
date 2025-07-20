@@ -1,11 +1,17 @@
-name: Build Wine ARM64 for macOS
+name: Build Wine ARM64 for macOS (DISABLED)
 
 on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
+  # Temporarily disabled to focus on Linux ARM64 builds
   workflow_dispatch:
+    inputs:
+      force_run:
+        description: 'Force run disabled workflow'
+        required: false
+        default: 'false'
+  # push:
+  #   branches: [ main, develop ]
+  # pull_request:
+  #   branches: [ main ]
 
 jobs:
   build-wine-arm64:
