@@ -19,12 +19,18 @@ jobs:
     strategy:
       matrix:
         build-type: 
-          - name: "simple"
+          - name: "alpine-simple"
             dockerfile: "Dockerfile.simple"
-            description: "Minimal build with essential dependencies only"
-          - name: "full" 
+            description: "Minimal musl build (Alpine)"
+            archive: "wine-arm64-linux-musl.tar.gz"
+          - name: "alpine-full" 
             dockerfile: "Dockerfile"
-            description: "Full build with static linking and all dependencies"
+            description: "Full static musl build (Alpine)"
+            archive: "wine-arm64-linux-musl.tar.gz"
+          - name: "debian"
+            dockerfile: "Dockerfile.debian"
+            description: "Standard glibc build (Debian)"
+            archive: "wine-arm64-linux-debian.tar.gz"
       fail-fast: false  # Continue other builds even if one fails
     
     name: Wine ARM64 Linux (${{ matrix.build-type.name }})
@@ -55,25 +61,26 @@ jobs:
       run: |
         echo "Checking build output..."
         ls -la output/
-        if [ -f output/wine-arm64-linux-musl.tar.gz ]; then
+        if [ -f "output/${{ matrix.build-type.archive }}" ]; then
           echo "✅ Wine ARM64 Linux build successful!"
-          echo "Archive size: $(du -h output/wine-arm64-linux-musl.tar.gz)"
+          echo "Archive size: $(du -h output/${{ matrix.build-type.archive }})"
         else
           echo "❌ Build failed - no output archive found"
+          echo "Expected: ${{ matrix.build-type.archive }}"
           exit 1
         fi
         
     - name: Extract and test Wine build
       run: |
         cd output
-        tar -tzf wine-arm64-linux-musl.tar.gz | head -20
-        echo "Archive contains $(tar -tzf wine-arm64-linux-musl.tar.gz | wc -l) files"
+        tar -tzf ${{ matrix.build-type.archive }} | head -20
+        echo "Archive contains $(tar -tzf ${{ matrix.build-type.archive }} | wc -l) files"
         
     - name: Upload Wine ARM64 Linux build
       uses: actions/upload-artifact@v4
       with:
-        name: wine-arm64-linux-musl-${{ matrix.build-type.name }}-${{ github.run_number }}
-        path: output/wine-arm64-linux-musl.tar.gz
+        name: wine-arm64-linux-${{ matrix.build-type.name }}-${{ github.run_number }}
+        path: output/${{ matrix.build-type.archive }}
         retention-days: 30
         
     - name: Create build summary
@@ -88,24 +95,32 @@ jobs:
         echo "**Runner**: Native ARM64 (ubuntu-24.04-arm)" >> $GITHUB_STEP_SUMMARY
         echo "**Build Date**: $(date)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        if [ -f output/wine-arm64-linux-musl.tar.gz ]; then
+        if [ -f "output/${{ matrix.build-type.archive }}" ]; then
           echo "✅ **Status**: Build successful" >> $GITHUB_STEP_SUMMARY
-          echo "📦 **Archive Size**: $(du -h output/wine-arm64-linux-musl.tar.gz | cut -f1)" >> $GITHUB_STEP_SUMMARY
-          echo "📁 **Files**: $(tar -tzf output/wine-arm64-linux-musl.tar.gz | wc -l) files" >> $GITHUB_STEP_SUMMARY
+          echo "📦 **Archive Size**: $(du -h output/${{ matrix.build-type.archive }} | cut -f1)" >> $GITHUB_STEP_SUMMARY
+          echo "📁 **Files**: $(tar -tzf output/${{ matrix.build-type.archive }} | wc -l) files" >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ **Status**: Build failed" >> $GITHUB_STEP_SUMMARY
         fi
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Configuration (${{ matrix.build-type.name }})" >> $GITHUB_STEP_SUMMARY
         echo "- ARM64 architecture (aarch64) - **Native build**" >> $GITHUB_STEP_SUMMARY
-        echo "- musl libc (Alpine Linux)" >> $GITHUB_STEP_SUMMARY
-        if [ "${{ matrix.build-type.name }}" = "simple" ]; then
+        if [[ "${{ matrix.build-type.name }}" == *"alpine"* ]]; then
+          echo "- musl libc (Alpine Linux)" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- glibc (Debian Linux)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [ "${{ matrix.build-type.name }}" = "alpine-simple" ]; then
           echo "- Minimal dependencies" >> $GITHUB_STEP_SUMMARY
           echo "- Headless build (no GUI support)" >> $GITHUB_STEP_SUMMARY
           echo "- Basic Wine functionality only" >> $GITHUB_STEP_SUMMARY
-        else
+        elif [ "${{ matrix.build-type.name }}" = "alpine-full" ]; then
           echo "- Static linking where possible" >> $GITHUB_STEP_SUMMARY
           echo "- Extended dependencies" >> $GITHUB_STEP_SUMMARY
           echo "- Audio/multimedia support" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Standard dynamic linking" >> $GITHUB_STEP_SUMMARY
+          echo "- mingw-w64 cross-compiler support" >> $GITHUB_STEP_SUMMARY
+          echo "- Full dependency set" >> $GITHUB_STEP_SUMMARY
         fi
         echo "- Windows PE support enabled" >> $GITHUB_STEP_SUMMARY

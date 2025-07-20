@@ -1,27 +1,32 @@
-# Wine ARM64 Linux Build with musl libc (Simplified)
-FROM alpine:3.19
+# Wine ARM64 Linux Build with Debian (alternative to Alpine)
+FROM debian:12-slim
 
-# Install essential build dependencies
-RUN apk add --no-cache \
-    build-base \
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies for Wine on Debian ARM64
+RUN apt-get update && apt-get install -y \
+    build-essential \
     clang \
     git \
     bison \
     flex \
     perl \
     python3 \
-    pkgconfig \
+    pkg-config \
     autoconf \
     automake \
     libtool \
-    gettext-dev \
-    freetype-dev \
-    fontconfig-dev \
-    gnutls-dev \
-    zlib-dev \
+    gettext \
+    libfreetype6-dev \
+    libfontconfig1-dev \
+    libgnutls28-dev \
+    zlib1g-dev \
     libxml2-dev \
-    libxslt-dev \
-    ncurses-dev
+    libxslt1-dev \
+    libncurses-dev \
+    gcc-mingw-w64 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set environment for ARM64 build
 ENV CC="clang"
@@ -30,7 +35,7 @@ ENV CFLAGS="-Os -pipe"
 ENV CXXFLAGS="-Os -pipe"
 
 # Create wine user
-RUN adduser -D -s /bin/sh wine
+RUN useradd -m -s /bin/bash wine
 USER wine
 WORKDIR /home/wine
 
@@ -41,7 +46,7 @@ RUN git clone --depth 1 https://github.com/wine-mirror/wine.git wine-source
 WORKDIR /home/wine/wine-source
 RUN mkdir -p build-arm64
 
-# Configure Wine for ARM64 Linux (minimal build)
+# Configure Wine for ARM64 Linux (Debian)
 WORKDIR /home/wine/wine-source/build-arm64
 RUN ../configure \
     --prefix=/opt/wine-arm64 \
@@ -64,7 +69,6 @@ RUN ../configure \
     --without-krb5 \
     --without-ldap \
     --without-netapi \
-    --without-mingw \
     --disable-winemenubuilder \
     || (echo "=== CONFIG.LOG ===" && cat config.log && exit 1)
 
@@ -77,7 +81,7 @@ RUN make install
 
 # Create Wine tarball
 WORKDIR /opt
-RUN tar -czf /tmp/wine-arm64-linux-musl.tar.gz wine-arm64/
+RUN tar -czf /tmp/wine-arm64-linux-debian.tar.gz wine-arm64/
 
 # Test basic Wine functionality
 USER wine
@@ -86,4 +90,4 @@ RUN wine --version
 
 # Final stage - copy out the built Wine
 FROM scratch AS export
-COPY --from=0 /tmp/wine-arm64-linux-musl.tar.gz /
+COPY --from=0 /tmp/wine-arm64-linux-debian.tar.gz /

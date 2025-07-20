@@ -48,10 +48,6 @@ RUN apk add --no-cache \
     gstreamer-dev \
     gst-plugins-base-dev \
     sdl2-dev \
-    vkd3d-dev \
-    spirv-tools-dev \
-    mingw-w64-gcc \
-    mingw-w64-binutils \
     zlib-dev \
     jpeg-dev \
     libpng-dev \
@@ -100,6 +96,7 @@ RUN ../configure \
     --without-coreaudio \
     --without-inotify \
     --without-oss \
+    --without-mingw \
     --disable-winemenubuilder \
     --disable-wineserver-debug \
     --enable-static \
