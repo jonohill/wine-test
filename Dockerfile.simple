@@ -1,0 +1,89 @@
+# Wine ARM64 Linux Build with musl libc (Simplified)
+FROM alpine:3.19
+
+# Install essential build dependencies
+RUN apk add --no-cache \
+    build-base \
+    clang \
+    git \
+    bison \
+    flex \
+    perl \
+    python3 \
+    pkgconfig \
+    autoconf \
+    automake \
+    libtool \
+    gettext-dev \
+    freetype-dev \
+    fontconfig-dev \
+    gnutls-dev \
+    zlib-dev \
+    mingw-w64-gcc \
+    libxml2-dev \
+    libxslt-dev \
+    ncurses-dev
+
+# Set environment for ARM64 build
+ENV CC="clang"
+ENV CXX="clang++"
+ENV CFLAGS="-Os -pipe"
+ENV CXXFLAGS="-Os -pipe"
+
+# Create wine user
+RUN adduser -D -s /bin/sh wine
+USER wine
+WORKDIR /home/wine
+
+# Clone Wine source
+RUN git clone --depth 1 https://github.com/wine-mirror/wine.git wine-source
+
+# Create build directory
+WORKDIR /home/wine/wine-source
+RUN mkdir -p build-arm64
+
+# Configure Wine for ARM64 Linux (minimal build)
+WORKDIR /home/wine/wine-source/build-arm64
+RUN ../configure \
+    --prefix=/opt/wine-arm64 \
+    --enable-archs=aarch64 \
+    --disable-win16 \
+    --disable-tests \
+    --without-x \
+    --without-wayland \
+    --without-vulkan \
+    --without-opengl \
+    --without-opencl \
+    --without-alsa \
+    --without-pulse \
+    --without-oss \
+    --without-cups \
+    --without-sane \
+    --without-usb \
+    --without-v4l2 \
+    --without-gstreamer \
+    --without-krb5 \
+    --without-ldap \
+    --without-netapi \
+    --disable-winemenubuilder \
+    || (echo "=== CONFIG.LOG ===" && cat config.log && exit 1)
+
+# Build Wine
+RUN make -j$(nproc) || make -j1
+
+# Install Wine
+USER root
+RUN make install
+
+# Create Wine tarball
+WORKDIR /opt
+RUN tar -czf /tmp/wine-arm64-linux-musl.tar.gz wine-arm64/
+
+# Test basic Wine functionality
+USER wine
+ENV PATH="/opt/wine-arm64/bin:$PATH"
+RUN wine --version
+
+# Final stage - copy out the built Wine
+FROM scratch AS export
+COPY --from=0 /tmp/wine-arm64-linux-musl.tar.gz /

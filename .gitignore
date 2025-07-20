@@ -1,0 +1,5 @@
+*.md
+wine-source/
+wine-arm64/
+wine-arm64-test/
+*.tar
