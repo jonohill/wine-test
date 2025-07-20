@@ -8,6 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
     build-essential \
     clang \
+    lld \
     git \
     bison \
     flex \
@@ -18,14 +19,13 @@ RUN apt-get update && apt-get install -y \
     automake \
     libtool \
     gettext \
-    libfreetype6-dev \
-    libfontconfig1-dev \
+    libfreetype-dev \
+    libfontconfig-dev \
     libgnutls28-dev \
     zlib1g-dev \
     libxml2-dev \
     libxslt1-dev \
     libncurses-dev \
-    gcc-mingw-w64 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set environment for ARM64 build
@@ -88,6 +88,22 @@ USER wine
 ENV PATH="/opt/wine-arm64/bin:$PATH"
 RUN wine --version
 
-# Final stage - copy out the built Wine
-FROM scratch AS export
-COPY --from=0 /tmp/wine-arm64-linux-debian.tar.gz /
+# Final stage - Debian slim with Wine installed
+FROM debian:12-slim
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the built Wine installation
+COPY --from=0 /opt/wine-arm64 /opt/wine-arm64
+
+# Create wine user
+RUN useradd -m -s /bin/bash wine
+
+# Set up environment
+ENV PATH="/opt/wine-arm64/bin:$PATH"
+USER wine
+WORKDIR /home/wine
+
+# Test Wine works in final stage
+RUN wine --version

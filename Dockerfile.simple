@@ -5,6 +5,7 @@ FROM alpine:3.19
 RUN apk add --no-cache \
     build-base \
     clang \
+    lld \
     git \
     bison \
     flex \
@@ -45,7 +46,6 @@ RUN mkdir -p build-arm64
 WORKDIR /home/wine/wine-source/build-arm64
 RUN ../configure \
     --prefix=/opt/wine-arm64 \
-    --enable-archs=aarch64 \
     --disable-win16 \
     --disable-tests \
     --without-x \
